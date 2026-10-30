@@ -17,7 +17,12 @@ textarea{width:100%;min-height:220px}
 h2{font-size:1.1rem;margin:.2rem 0 .5rem}.mu{color:var(--mu);font-size:.9rem}
 .scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid var(--bd);padding:5px 6px;text-align:left}
 pre{white-space:pre-wrap;font:inherit;margin:0}
+#ld{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:9}
+#ld.on{display:flex}
+#ld i{width:46px;height:46px;border:5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
 </style></head><body><main id="app"><p class="mu">Caricamento…</p></main>
+<div id="ld"><i></i></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbyMpid6r7huXJj9uyjUdUOBgsa4ruLdc8C0txOkBpScaUK-Q4kXWC-kiL-nDhcklELW/exec';
 const TYPES={forza:'Test di forza (ChronoJump)',bosco:'Test di Bosco (ChronoJump)',velocita:'Velocità',policoncorrenza:'Policoncorrenza',multibalzi:'Multibalzi'};
@@ -27,10 +32,14 @@ let tab=S&&S.coach?'coach':'oggi',viewId=null,day=iso(new Date()),msg='',cm=fals
 function iso(d){return d.toLocaleDateString('sv-SE')}
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function keep(){try{localStorage.setItem('s',JSON.stringify(S))}catch(e){}}
+let busy=0;
+function load(on){busy+=on?1:-1;$('ld').classList.toggle('on',busy>0)}
 async function api(a,p={}){
+  load(true);
   const b={a,...p};if(S){b.id=S.id;b.token=S.token;b.coach=S.coach}
   try{const r=await fetch(API,{method:'POST',body:JSON.stringify(b)});const j=await r.json();if(j.error){msg=j.error;return null}return j}
   catch(e){msg='Connessione non riuscita, riprova.';return null}
+  finally{load(false)}
 }
 function viewAuth(){app.innerHTML=`<div class="card"><h2>Gruppo Allenamento</h2>${msg?`<p>${esc(msg)}</p>`:''}
  ${cm?`<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="clogin()">Entra come allenatore</button><button onclick="cm=false;msg='';viewAuth()">Indietro</button></div>`
@@ -68,7 +77,7 @@ async function vProfilo(){
     if(!list.find(a=>a.id===viewId))viewId=list[0].id;target=viewId;
     head=`<select onchange="viewId=this.value;render()">${list.map(a=>`<option value="${a.id}" ${a.id===viewId?'selected':''}>${esc(a.nome)}</option>`).join('')}</select>`}
   const r=await api('tests',{target});if(!r)return '';
-  return `<div class="card"><h2>${S.coach?'Atleta':esc(S.name)}</h2>${head}<p class="mu">Presenze registrate: ${r.np}</p></div>
+  return `<div class="card"><h2>${S.coach?'Atleta':esc(S.name)}</h2>${head}<p class="mu">Presenze questo mese: ${r.np} · mese scorso: ${r.npPrev}</p></div>
   <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${['velocita','policoncorrenza','multibalzi'].map(k=>`<option value="${k}">${TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
   <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="addManual('${target}')">Aggiungi</button></div>
   <div class="card"><h2>Importa da ChronoJump (CSV)</h2><div class="row"><select id="ct"><option value="forza">${TYPES.forza}</option><option value="bosco">${TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
