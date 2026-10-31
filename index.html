@@ -1,97 +1,186 @@
 <!DOCTYPE html>
-<html lang="it"><head><meta charset="utf-8"><title>Gruppo Allenamento</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0a7a5a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Allenamento">
-<style>
-:root{--bg:#fff;--fg:#1c1c1e;--mu:#6b6b70;--ac:#0a7a5a;--bd:#ddd;--cd:#f6f6f7}
-@media(prefers-color-scheme:dark){:root{--bg:#17171a;--fg:#eee;--mu:#9a9aa0;--ac:#2fb98c;--bd:#333;--cd:#222226}}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-main{max-width:720px;margin:0 auto;padding:14px}
-nav{display:flex;gap:6px;margin-bottom:12px}nav button{flex:1}
-button,select,input,textarea{font:inherit;color:var(--fg);background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:10px;box-sizing:border-box}
-button{cursor:pointer}button.on,button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
-textarea{width:100%;min-height:220px}
-.card{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1;min-width:110px}
-h2{font-size:1.1rem;margin:.2rem 0 .5rem}.mu{color:var(--mu);font-size:.9rem}
-.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid var(--bd);padding:5px 6px;text-align:left}
-pre{white-space:pre-wrap;font:inherit;margin:0}
-#ld{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:9}
-#ld.on{display:flex}
-#ld i{width:46px;height:46px;border:5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-</style></head><body><main id="app"><p class="mu">Caricamento…</p></main>
-<div id="ld"><i></i></div>
-<script>
-const API='https://script.google.com/macros/s/AKfycbxKZMtcJOAQXlPKiqesPbYrBKcOcdhGKIDQKBUFmeYrHSYJC306BuRxHi3TIw1-0QE3/exec';
-const TYPES={forza:'Test di forza (ChronoJump)',bosco:'Test di Bosco (ChronoJump)',velocita:'Velocità',policoncorrenza:'Policoncorrenza',multibalzi:'Multibalzi'};
-const $=id=>document.getElementById(id),app=$('app');
-let S=null;try{S=JSON.parse(localStorage.getItem('s'))}catch(e){}
-let tab=S&&S.coach?'coach':'oggi',viewId=null,day=iso(new Date()),msg='',cm=false;
-function iso(d){return d.toLocaleDateString('sv-SE')}
-function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function keep(){try{localStorage.setItem('s',JSON.stringify(S))}catch(e){}}
-let busy=0;
-function load(on){busy+=on?1:-1;$('ld').classList.toggle('on',busy>0)}
-async function api(a,p={}){
-  load(true);
-  const b={a,...p};if(S){b.id=S.id;b.token=S.token;b.coach=S.coach}
-  try{const r=await fetch(API,{method:'POST',body:JSON.stringify(b)});const j=await r.json();if(j.error){msg=j.error;return null}return j}
-  catch(e){msg='Connessione non riuscita, riprova.';return null}
-  finally{load(false)}
-}
-function viewAuth(){app.innerHTML=`<div class="card"><h2>Gruppo Allenamento</h2>${msg?`<p>${esc(msg)}</p>`:''}
- ${cm?`<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="clogin()">Entra come allenatore</button><button onclick="cm=false;msg='';viewAuth()">Indietro</button></div>`
- :`<div class="row"><input id="nm" placeholder="Nome e cognome"><input id="pn" type="password" inputmode="numeric" placeholder="PIN (almeno 4 cifre)"></div>
- <div class="row"><input id="cd" placeholder="Codice gruppo (solo iscrizione)"></div>
- <div class="row"><button class="pri" onclick="login()">Accedi</button><button onclick="reg()">Iscriviti</button></div>
- <p class="mu"><a href="#" onclick="cm=true;msg='';viewAuth();return false">Sono l'allenatore</a></p>`}</div>`}
-async function login(){const r=await api('login',{name:$('nm').value,pin:$('pn').value});if(r){S={id:r.id,token:r.token,name:r.name};keep();msg='';tab='oggi';render()}else viewAuth()}
-async function reg(){const r=await api('reg',{name:$('nm').value,pin:$('pn').value,code:$('cd').value});if(r){S={id:r.id,token:r.token,name:r.name};keep();msg='';tab='oggi';render()}else viewAuth()}
-async function clogin(){const pw=$('cp').value;S=null;const r=await api('clogin',{coach:pw});if(r){S={coach:pw};keep();msg='';tab='coach';render()}else viewAuth()}
-function logout(){S=null;try{localStorage.removeItem('s')}catch(e){}msg='';cm=false;viewAuth()}
-async function render(){
-  if(!S)return viewAuth();
-  const c=!!S.coach;
-  const t=c?[['coach','Giorno'],['profilo','Atleti']]:[['oggi','Oggi'],['profilo','Profilo']];
-  let h='<nav>'+t.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';msg='';render()">${l}</button>`).join('')+'<button onclick="logout()">Esci</button></nav>';
-  const body=tab==='oggi'?await vOggi():tab==='profilo'?await vProfilo():await vCoach();
-  if(!S)return viewAuth();
-  app.innerHTML=h+(msg?`<div class="card">${esc(msg)}</div>`:'')+body;
-}
-function pres(r){return `<div class="card"><h2>Presenti (${r.present.length})</h2><p>${r.present.length?esc(r.present.join(', ')):'<span class="mu">Nessuno ancora.</span>'}</p></div>`}
-async function vOggi(){
-  const r=await api('oggi');if(!r)return '';
-  return `<div class="card"><h2>Programma di oggi (${r.day})</h2><p class="mu">${esc(r.label)}</p>${r.text?`<pre>${esc(r.text)}</pre>`:''}</div>
-  <div class="card"><button class="${r.here?'on':'pri'}" onclick="toggle()">${r.here?'✓ Presente — tocca per annullare':'Segna la mia presenza'}</button></div>${pres(r)}`}
-async function toggle(){msg='';await api('toggle');render()}
-async function vCoach(){
-  const r=await api('oggi',{day});if(!r)return '';
-  return `<div class="card"><h2>Programma del giorno</h2><input type="date" value="${day}" onchange="day=this.value;render()"><p class="mu">${esc(r.label)}. Se modifichi il testo e salvi, per questo giorno vale la tua versione (svuotalo per tornare al Doc).</p>
-  <textarea id="pg">${esc(r.text)}</textarea><div class="row"><button class="pri" onclick="saveProg()">Salva modifica</button></div></div>${pres(r)}`}
-async function saveProg(){msg='';const r=await api('setprog',{day,text:$('pg').value});if(r)msg='Salvato';render()}
-async function vProfilo(){
-  let target=S.id,head='';
-  if(S.coach){const l=await api('atleti');if(!l)return '';const list=l.list;if(!list.length)return '<div class="card">Nessun atleta iscritto.</div>';
-    if(!list.find(a=>a.id===viewId))viewId=list[0].id;target=viewId;
-    head=`<select onchange="viewId=this.value;render()">${list.map(a=>`<option value="${a.id}" ${a.id===viewId?'selected':''}>${esc(a.nome)}</option>`).join('')}</select>`}
-  const r=await api('tests',{target});if(!r)return '';
-  return `<div class="card"><h2>${S.coach?'Atleta':esc(S.name)}</h2>${head}<p class="mu">Presenze questo mese: ${r.np} · mese scorso: ${r.npPrev}</p></div>
-  <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${['velocita','policoncorrenza','multibalzi'].map(k=>`<option value="${k}">${TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
-  <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="addManual('${target}')">Aggiungi</button></div>
-  <div class="card"><h2>Importa da ChronoJump (CSV)</h2><div class="row"><select id="ct"><option value="forza">${TYPES.forza}</option><option value="bosco">${TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
-  <div class="card scroll"><h2>Storico test</h2>${r.tests.length?`<table><tr><th>Data</th><th>Test</th><th>Risultato</th><th></th></tr>${r.tests.map(t=>`<tr><td>${esc(t.day)}</td><td>${esc(TYPES[t.tipo]||t.tipo)}</td><td>${t.dati?esc(Object.entries(t.dati).slice(0,6).map(([k,v])=>k+': '+v).join(' · ')):esc(t.valore+' '+(t.unita||'')+(t.nota?' — '+t.nota:''))}</td><td><button onclick="delTest('${t.id}')">✕</button></td></tr>`).join('')}</table>`:'<p class="mu">Ancora nessun test.</p>'}</div>`}
-async function addManual(target){if($('tv').value==='')return;msg='';await api('addtest',{target,items:[{day:$('td').value||iso(new Date()),tipo:$('tt').value,valore:+$('tv').value,unita:$('tu').value,nota:$('tn').value}]});render()}
-async function delTest(tid){msg='';await api('deltest',{tid});render()}
-function parseCSV(txt){const L=txt.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());if(L.length<2)return[];
-  const d=[';','\t',','].map(c=>[c,L[0].split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
-  const sp=l=>l.split(d).map(x=>x.trim().replace(/^"|"$/g,''));const H=sp(L[0]);
-  return L.slice(1).map(l=>{const c=sp(l),o={};H.forEach((h,i)=>{if(h)o[h]=c[i]??''});return o})}
-function imp(inp,target){const f=inp.files[0];if(!f)return;const tipo=$('ct').value,r=new FileReader();
-  r.onload=async()=>{const items=parseCSV(r.result).map(o=>{const k=Object.keys(o).find(k=>/^(date|data|fecha)/i.test(k));
-    return{day:k&&/^\d{4}-\d{2}-\d{2}/.test(o[k])?o[k].slice(0,10):iso(new Date()),tipo,dati:o}});
-    msg='';if(items.length){const x=await api('addtest',{target,items});if(x)msg=items.length+' righe importate'}render()};r.readAsText(f)}
-if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
-render();
-</script></body></html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8">
+  <title>Gruppo Allenamento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#0a7a5a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Allenamento">
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #1c1c1e;
+      --mu: #6b6b70;
+      --ac: #0a7a5a;
+      --bd: #ddd;
+      --cd: #f6f6f7
+    }
+
+    @media(prefers-color-scheme:dark) {
+      :root {
+        --bg: #17171a;
+        --fg: #eee;
+        --mu: #9a9aa0;
+        --ac: #2fb98c;
+        --bd: #333;
+        --cd: #222226
+      }
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.45 system-ui, -apple-system, sans-serif;
+      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom)
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 14px
+    }
+
+    nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px
+    }
+
+    nav button {
+      flex: 1
+    }
+
+    button,
+    select,
+    input,
+    textarea {
+      font: inherit;
+      color: var(--fg);
+      background: var(--cd);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 10px;
+      box-sizing: border-box
+    }
+
+    button {
+      cursor: pointer
+    }
+
+    button.on,
+    button.pri {
+      background: var(--ac);
+      color: #fff;
+      border-color: var(--ac)
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 220px
+    }
+
+    .card {
+      background: var(--cd);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0
+    }
+
+    .row>* {
+      flex: 1;
+      min-width: 110px
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      margin: .2rem 0 .5rem
+    }
+
+    .mu {
+      color: var(--mu);
+      font-size: .9rem
+    }
+
+    .scroll {
+      overflow-x: auto
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: .9rem
+    }
+
+    td,
+    th {
+      border-bottom: 1px solid var(--bd);
+      padding: 5px 6px;
+      text-align: left
+    }
+
+    pre {
+      white-space: pre-wrap;
+      font: inherit;
+      margin: 0
+    }
+
+    #ld {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .3);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9
+    }
+
+    #ld.on {
+      display: flex
+    }
+
+    #ld i {
+      width: 46px;
+      height: 46px;
+      border: 5px solid rgba(255, 255, 255, .4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: sp .8s linear infinite
+    }
+
+    @keyframes sp {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app">
+    <p class="mu">Caricamento…</p>
+  </main>
+  <div id="ld"><i></i></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    // === CONFIGURAZIONE SUPABASE ===
+    const SUPABASE_URL = 'INSERISCI_QUI_IL_TUO_URL';
+    const SUPABASE_KEY = 'INSERISCI_QUI_LA_TUA_CHIAVE_ANONIMA';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const GROUP_CODE = '0000'; // Cod
