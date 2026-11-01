@@ -179,8 +179,232 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
     // === CONFIGURAZIONE SUPABASE ===
-    const SUPABASE_URL = 'INSERISCI_QUI_IL_TUO_URL';
-    const SUPABASE_KEY = 'INSERISCI_QUI_LA_TUA_CHIAVE_ANONIMA';
+    const SUPABASE_URL = 'https://vgnxnuqrwcbsgykcufec.supabase.co'; // URL del progetto Supabase;
+    const SUPABASE_KEY = 'sb_publishable_NHTFYS0w7DDWmbXltjNcXA_Syu1_p5H'; // Chiave pubblica (anon key)
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const GROUP_CODE = '0000'; // Cod
+    const GROUP_CODE = '0000'; // Codice per far iscrivere gli atleti
+    const COACH_PASS = 'admin'; // Password allenatore
+
+    window.TYPES = { forza: 'Test di forza', bosco: 'Test di Bosco', velocita: 'Velocità', policoncorrenza: 'Policoncorrenza', multibalzi: 'Multibalzi' };
+    const $ = id => document.getElementById(id);
+    const app = $('app');
+
+    window.S = null;
+    try { window.S = JSON.parse(localStorage.getItem('s')) } catch (e) { }
+    window.tab = window.S && window.S.coach ? 'coach' : 'oggi';
+    window.viewId = null;
+    window.day = iso(new Date());
+    window.msg = '';
+    window.cm = false;
+    let busy = 0;
+
+    window.iso = iso;
+    function iso(d) { return d.toLocaleDateString('sv-SE') }
+    window.esc = esc;
+    function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
+    function keep() { try { localStorage.setItem('s', JSON.stringify(window.S)) } catch (e) { } }
+    function load(on) { busy += on ? 1 : -1; $('ld').classList.toggle('on', busy > 0) }
+
+    async function hashString(str) {
+      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    window.viewAuth = async function () {
+      app.innerHTML = `<div class="card"><h2>Gruppo Allenamento</h2>${window.msg ? `<p>${esc(window.msg)}</p>` : ''}
+  ${window.cm ? `<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="window.clogin()">Entra come allenatore</button><button onclick="window.cm=false;window.msg='';window.viewAuth()">Indietro</button></div>`
+          : `<div class="row"><input id="nm" placeholder="Nome e cognome"><input id="pn" type="password" inputmode="numeric" placeholder="PIN (almeno 4 cifre)"></div>
+  <div class="row"><input id="cd" placeholder="Codice gruppo (solo iscrizione)"></div>
+  <div class="row"><button class="pri" onclick="window.login()">Accedi</button><button onclick="window.reg()">Iscriviti</button></div>
+  <p class="mu"><a href="#" onclick="window.cm=true;window.msg='';window.viewAuth();return false">Sono l'allenatore</a></p>`}</div>`;
+    }
+
+    window.login = async function () {
+      const nome = $('nm').value.trim();
+      const pin = $('pn').value;
+      if (!nome || pin.length < 4) { window.msg = 'Inserisci nome e PIN (min 4 cifre)'; return window.viewAuth(); }
+      load(true);
+      const { data, error } = await supabase.from('atleti').select('id, nome, pin_hash').ilike('nome', nome).single();
+      load(false);
+      if (error || !data) { window.msg = 'Atleta non trovato'; return window.viewAuth(); }
+      const hashedPin = await hashString(pin);
+      if (hashedPin === data.pin_hash) {
+        window.S = { id: data.id, token: hashedPin, name: data.nome };
+        keep(); window.msg = ''; window.tab = 'oggi'; window.render();
+      } else {
+        window.msg = 'PIN errato'; window.viewAuth();
+      }
+    }
+
+    window.reg = async function () {
+      const nome = $('nm').value.trim();
+      const pin = $('pn').value;
+      const code = $('cd').value;
+      if (code !== GROUP_CODE) { window.msg = 'Codice gruppo errato'; return window.viewAuth(); }
+      if (!nome || pin.length < 4) { window.msg = 'Serve nome e PIN di almeno 4 cifre'; return window.viewAuth(); }
+      load(true);
+      const hashedPin = await hashString(pin);
+      const { data, error } = await supabase.from('atleti').insert([{ nome, pin_hash: hashedPin }]).select().single();
+      load(false);
+      if (error) { window.msg = 'Errore (nome già in uso?)'; return window.viewAuth(); }
+      window.S = { id: data.id, token: hashedPin, name: data.nome };
+      keep(); window.msg = ''; window.tab = 'oggi'; window.render();
+    }
+
+    window.clogin = function () {
+      const pw = $('cp').value;
+      if (pw === COACH_PASS) {
+        window.S = { coach: pw };
+        keep(); window.msg = ''; window.tab = 'coach'; window.render();
+      } else {
+        window.S = null; window.msg = 'Password errata'; window.viewAuth();
+      }
+    }
+
+    window.logout = function () {
+      window.S = null; try { localStorage.removeItem('s') } catch (e) { }
+      window.msg = ''; window.cm = false; window.viewAuth();
+    }
+
+    window.render = async function () {
+      if (!window.S) return window.viewAuth();
+      const c = !!window.S.coach;
+      const t = c ? [['coach', 'Giorno'], ['profilo', 'Atleti']] : [['oggi', 'Oggi'], ['profilo', 'Profilo']];
+      let h = '<nav>' + t.map(([k, l]) => `<button class="${window.tab === k ? 'on' : ''}" onclick="window.tab='${k}';window.msg='';window.render()">${l}</button>`).join('') + '<button onclick="window.logout()">Esci</button></nav>';
+      const body = window.tab === 'oggi' ? await vOggi() : window.tab === 'profilo' ? await vProfilo() : await vCoach();
+      app.innerHTML = h + (window.msg ? `<div class="card">${esc(window.msg)}</div>` : '') + body;
+    }
+
+    function presHTML(presenti) {
+      return `<div class="card"><h2>Presenti (${presenti.length})</h2><p>${presenti.length ? esc(presenti.join(', ')) : '<span class="mu">Nessuno ancora.</span>'}</p></div>`;
+    }
+
+    async function fetchGiornata(targetDay) {
+      const { data: prog } = await supabase.from('programmi_override').select('testo').eq('data', targetDay).single();
+      const { data: presData } = await supabase.from('presenze').select('atleta_id, atleti(nome)').eq('data', targetDay);
+      const presentNames = presData ? presData.map(p => p.atleti.nome) : [];
+      const here = window.S && presData ? presData.some(p => p.atleta_id === window.S.id) : false;
+      return { testo: prog ? prog.testo : '', presentNames, here };
+    }
+
+    async function vOggi() {
+      load(true);
+      const { testo, presentNames, here } = await fetchGiornata(window.day);
+      load(false);
+      const label = testo ? 'Programma caricato' : 'Nessun programma per oggi';
+      return `<div class="card"><h2>Programma di oggi (${window.day})</h2><p class="mu">${label}</p>${testo ? `<pre>${esc(testo)}</pre>` : ''}</div>
+  <div class="card"><button class="${here ? 'on' : 'pri'}" onclick="window.toggle()">${here ? '✓ Presente — tocca per annullare' : 'Segna la mia presenza'}</button></div>${presHTML(presentNames)}`;
+    }
+
+    window.toggle = async function () {
+      window.msg = ''; load(true);
+      const { data } = await supabase.from('presenze').select('id').eq('atleta_id', window.S.id).eq('data', window.day).single();
+      if (data) await supabase.from('presenze').delete().eq('id', data.id);
+      else await supabase.from('presenze').insert([{ atleta_id: window.S.id, data: window.day }]);
+      load(false); window.render();
+    }
+
+    async function vCoach() {
+      load(true);
+      const { testo, presentNames } = await fetchGiornata(window.day);
+      load(false);
+      return `<div class="card"><h2>Programma del giorno</h2><input type="date" value="${window.day}" onchange="window.day=this.value;window.render()"><p class="mu">Scrivi o incolla il programma per il giorno selezionato.</p>
+  <textarea id="pg">${esc(testo)}</textarea><div class="row"><button class="pri" onclick="window.saveProg()">Salva programma</button></div></div>${presHTML(presentNames)}`;
+    }
+
+    window.saveProg = async function () {
+      window.msg = ''; load(true);
+      const testo = $('pg').value;
+      if (testo.trim() === '') await supabase.from('programmi_override').delete().eq('data', window.day);
+      else await supabase.from('programmi_override').upsert({ data: window.day, testo });
+      load(false); window.msg = 'Programma salvato'; window.render();
+    }
+
+    async function vProfilo() {
+      load(true);
+      let target = window.S.id, head = '';
+
+      if (window.S.coach) {
+        const { data: list } = await supabase.from('atleti').select('id, nome').order('nome');
+        if (!list || !list.length) { load(false); return '<div class="card">Nessun atleta iscritto.</div>'; }
+        if (!window.viewId || !list.find(a => a.id === window.viewId)) window.viewId = list[0].id;
+        target = window.viewId;
+        head = `<select onchange="window.viewId=this.value;window.render()">${list.map(a => `<option value="${a.id}" ${a.id === window.viewId ? 'selected' : ''}>${esc(a.nome)}</option>`).join('')}</select>`;
+      }
+
+      const { data: tests } = await supabase.from('test').select('*').eq('atleta_id', target).order('data', { ascending: false });
+      const curM = window.day.slice(0, 7);
+      const prevD = new Date(); prevD.setMonth(prevD.getMonth() - 1);
+      const prevM = iso(prevD).slice(0, 7);
+      const { count: cCur } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).like('data', `${curM}%`);
+      const { count: cPrev } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).like('data', `${prevM}%`);
+      load(false);
+
+      return `<div class="card"><h2>${window.S.coach ? 'Atleta' : esc(window.S.name)}</h2>${head}<p class="mu">Presenze mese corrente: ${cCur || 0} · mese scorso: ${cPrev || 0}</p></div>
+  <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${Object.keys(window.TYPES).map(k => `<option value="${k}">${window.TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
+  <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="window.addManual('${target}')">Aggiungi</button></div>
+  <div class="card"><h2>Importa (CSV)</h2><div class="row"><select id="ct"><option value="forza">${window.TYPES.forza}</option><option value="bosco">${window.TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="window.imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
+  <div class="card scroll"><h2>Storico test</h2>${tests && tests.length ? `<table><tr><th>Data</th><th>Test</th><th>Risultato</th><th></th></tr>${tests.map(t => `<tr><td>${esc(t.data)}</td><td>${esc(window.TYPES[t.tipo] || t.tipo)}</td><td>${t.dati ? esc(Object.entries(t.dati).slice(0, 6).map(([k, v]) => k + ': ' + v).join(' · ')) : esc(t.valore + ' ' + (t.unita || '') + (t.nota ? ' — ' + t.nota : ''))}</td><td><button onclick="window.delTest('${t.id}')">✕</button></td></tr>`).join('')}</table>` : '<p class="mu">Ancora nessun test.</p>'}</div>`;
+    }
+
+    window.addManual = async function (target) {
+      if ($('tv').value === '') return;
+      window.msg = ''; load(true);
+      await supabase.from('test').insert([{
+        atleta_id: target,
+        data: $('td').value || iso(new Date()),
+        tipo: $('tt').value,
+        valore: +$('tv').value,
+        unita: $('tu').value,
+        nota: $('tn').value
+      }]);
+      load(false); window.render();
+    }
+
+    window.delTest = async function (tid) {
+      window.msg = ''; load(true);
+      await supabase.from('test').delete().eq('id', tid);
+      load(false); window.render();
+    }
+
+    function parseCSV(txt) {
+      const L = txt.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+      if (L.length < 2) return [];
+      const d = [';', '\t', ','].map(c => [c, L[0].split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
+      const sp = l => l.split(d).map(x => x.trim().replace(/^"|"$/g, ''));
+      const H = sp(L[0]);
+      return L.slice(1).map(l => { const c = sp(l), o = {}; H.forEach((h, i) => { if (h) o[h] = c[i] ?? '' }); return o; });
+    }
+
+    window.imp = function (inp, target) {
+      const f = inp.files[0]; if (!f) return;
+      const tipo = $('ct').value, r = new FileReader();
+      r.onload = async () => {
+        const items = parseCSV(r.result).map(o => {
+          const k = Object.keys(o).find(k => /^(date|data|fecha)/i.test(k));
+          return {
+            atleta_id: target,
+            data: k && /^\d{4}-\d{2}-\d{2}/.test(o[k]) ? o[k].slice(0, 10) : iso(new Date()),
+            tipo, dati: o
+          };
+        });
+        window.msg = '';
+        if (items.length) {
+          load(true);
+          const { error } = await supabase.from('test').insert(items);
+          load(false);
+          if (!error) window.msg = items.length + ' righe importate';
+          else window.msg = 'Errore importazione';
+        }
+        window.render();
+      };
+      r.readAsText(f);
+    }
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    window.render();
+  </script>
+</body>
+
+</html>
