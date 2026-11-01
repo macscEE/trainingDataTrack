@@ -138,6 +138,17 @@
       margin: 0
     }
 
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.1rem
+    }
+
+    .chart {
+      position: relative;
+      height: 300px
+    }
+
     #ld {
       position: fixed;
       inset: 0;
@@ -175,20 +186,39 @@
   </main>
   <div id="ld"><i></i></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // === CONFIGURAZIONE SUPABASE ===
-    const SUPABASE_URL = 'https://vgnxnuqrwcbsgykcufec.supabase.co'; // URL del progetto Supabase;
-    const SUPABASE_KEY = 'sb_publishable_NHTFYS0w7DDWmbXltjNcXA_Syu1_p5H'; // Chiave pubblica (anon key)
+    // === CONFIGURAZIONE ===
+    const SUPABASE_URL = 'https://vgnxnuqrwcbsgykcufec.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_NHTFYS0w7DDWmbXltjNcXA_Syu1_p5H';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    const GROUP_CODE = '0000'; // Codice per far iscrivere gli atleti
     const COACH_PASS = 'admin'; // Password allenatore
 
-    window.TYPES = { forza: 'Test di forza', bosco: 'Test di Bosco', velocita: 'Velocità', policoncorrenza: 'Policoncorrenza', multibalzi: 'Multibalzi' };
+    const TYPES = {
+      forza: 'Test di forza', bosco: 'Test di Bosco', velocita: 'Velocità', policoncorrenza: 'Policoncorrenza', multibalzi: 'Multibalzi',
+      SJ: 'SJ (squat jump)', CMJ: 'CMJ (counter movement jump)', 'cmj+braccia': 'CMJ con braccia', SJl: 'SJ con carico', CMJl: 'CMJ con carico',
+      ABK: 'ABK (Abalakov)', 'RJ(j)': 'RJ (salti ripetuti)', 'RJ(t)': 'RJ a tempo', 'CMJ DX': 'CMJ gamba destra', 'CMJ SX': 'CMJ gamba sinistra',
+      Stifness: 'Stiffness', byLaps: 'Corsa a giri'
+    };
+    const MANUAL = ['velocita', 'policoncorrenza', 'multibalzi', 'forza', 'bosco'];
+    const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    const LAB = {
+      altezza_cm: 'Altezza (cm)', altezza_media_cm: 'Altezza media (cm)', altezza_max_cm: 'Altezza massima (cm)',
+      tv_s: 'Tempo di volo (s)', tv_medio_s: 'Tempo di volo medio (s)', tc_s: 'Tempo di contatto (s)', tc_medio_s: 'Tempo di contatto medio (s)',
+      rsi: 'Indice di forza reattiva (RSI)', salti: 'N° salti', tempo_s: 'Tempo (s)', velocita_ms: 'Velocità media (m/s)',
+      tempo_tratto1_s: 'Tempo tratto 1 (s)', tempo_tratto2_s: 'Tempo tratto 2 (s)', tempo_tratto3_s: 'Tempo tratto 3 (s)',
+      potenza_media_w: 'Potenza media (W)', potenza_max_w: 'Potenza massima (W)', velocita_media_ms: 'Velocità media (m/s)',
+      velocita_max_ms: 'Velocità massima (m/s)', forza_media_n: 'Forza media (N)', forza_max_n: 'Forza massima (N)',
+      ripetizioni: 'Ripetizioni', valore: 'Risultato'
+    };
+    const PREF = ['altezza_cm', 'altezza_media_cm', 'tempo_s', 'potenza_media_w'];
+    const COLORS = ['#0a7a5a', '#d9480f', '#1c7ed6', '#9c36b5', '#e8a400', '#c2255c', '#2b8a3e', '#495057'];
+
     const $ = id => document.getElementById(id);
     const app = $('app');
+    const lab = t => TYPES[t] || t;
 
     window.S = null;
     try { window.S = JSON.parse(localStorage.getItem('s')) } catch (e) { }
@@ -197,74 +227,82 @@
     window.day = iso(new Date());
     window.msg = '';
     window.cm = false;
-    let busy = 0;
+    window.who = '';
+    window.ATL = [];
+    window.TESTS = [];
+    let busy = 0, CH = null;
 
-    window.iso = iso;
     function iso(d) { return d.toLocaleDateString('sv-SE') }
-    window.esc = esc;
     function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
+    function fdate(s) { const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
     function keep() { try { localStorage.setItem('s', JSON.stringify(window.S)) } catch (e) { } }
     function load(on) { busy += on ? 1 : -1; $('ld').classList.toggle('on', busy > 0) }
-
     async function hashString(str) {
       const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
       return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
+    function enterAs(a, hp) { window.S = { id: a.id, token: hp, name: a.nome }; keep(); window.ATL = []; window.who = ''; window.msg = ''; window.tab = 'oggi'; window.render(); }
 
+    // ---------- Accesso ----------
     window.viewAuth = async function () {
-      app.innerHTML = `<div class="card"><h2>Gruppo Allenamento</h2>${window.msg ? `<p>${esc(window.msg)}</p>` : ''}
-  ${window.cm ? `<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="window.clogin()">Entra come allenatore</button><button onclick="window.cm=false;window.msg='';window.viewAuth()">Indietro</button></div>`
-          : `<div class="row"><input id="nm" placeholder="Nome e cognome"><input id="pn" type="password" inputmode="numeric" placeholder="PIN (almeno 4 cifre)"></div>
-  <div class="row"><input id="cd" placeholder="Codice gruppo (solo iscrizione)"></div>
-  <div class="row"><button class="pri" onclick="window.login()">Accedi</button><button onclick="window.reg()">Iscriviti</button></div>
-  <p class="mu"><a href="#" onclick="window.cm=true;window.msg='';window.viewAuth();return false">Sono l'allenatore</a></p>`}</div>`;
+      if (!window.cm && !window.ATL.length) {
+        load(true);
+        const { data, error } = await supabase.from('atleti').select('id, nome, ha_pin').order('nome');
+        load(false);
+        if (error) window.msg = 'Errore: ' + error.message;
+        window.ATL = data || [];
+      }
+      let body = '';
+      if (window.cm) {
+        body = `<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="window.clogin()">Entra come allenatore</button><button onclick="window.cm=false;window.msg='';window.viewAuth()">Indietro</button></div>`;
+      } else {
+        const a = window.ATL.find(x => x.id === window.who);
+        let act = '';
+        if (window.who === '__new') act = `<div class="row"><input id="nm" placeholder="Nome e cognome"></div><div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="Scegli un PIN (min. 4 cifre)"><input id="pn2" type="password" inputmode="numeric" placeholder="Ripeti il PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Iscriviti</button></div>`;
+        else if (a && !a.ha_pin) act = `<p class="mu">Prima volta: scegli un PIN. Lo userai per entrare ogni volta.</p><div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="Scegli un PIN (min. 4 cifre)"><input id="pn2" type="password" inputmode="numeric" placeholder="Ripeti il PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Salva il PIN ed entra</button></div>`;
+        else if (a) act = `<div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Accedi</button></div>`;
+        body = `<div class="row"><select id="who" onchange="window.who=this.value;window.msg='';window.viewAuth()"><option value="">Scegli il tuo nome…</option>${window.ATL.map(x => `<option value="${x.id}" ${x.id === window.who ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}<option value="__new" ${window.who === '__new' ? 'selected' : ''}>➕ Non sono in lista</option></select></div>${act}
+        <p class="mu"><a href="#" onclick="window.cm=true;window.msg='';window.viewAuth();return false">Sono l'allenatore</a></p>`;
+      }
+      app.innerHTML = `<div class="card"><h2>Gruppo Allenamento</h2>${window.msg ? `<p>${esc(window.msg)}</p>` : ''}${body}</div>`;
     }
 
-    window.login = async function () {
-      const nome = $('nm').value.trim();
-      const pin = $('pn').value;
-      if (!nome || pin.length < 4) { window.msg = 'Inserisci nome e PIN (min 4 cifre)'; return window.viewAuth(); }
+    window.enter = async function () {
+      const pin = $('pn').value, pin2 = $('pn2') ? $('pn2').value : pin;
+      const needNew = window.who === '__new' || (window.ATL.find(x => x.id === window.who) || {}).ha_pin === false;
+      if (pin.length < 4) { window.msg = 'Il PIN deve avere almeno 4 cifre'; return window.viewAuth(); }
+      if (needNew && pin !== pin2) { window.msg = 'I due PIN non coincidono'; return window.viewAuth(); }
+      const hp = await hashString(pin);
       load(true);
-      const { data, error } = await supabase.from('atleti').select('id, nome, pin_hash').ilike('nome', nome).single();
+      if (window.who === '__new') {
+        const nome = $('nm').value.trim();
+        if (!nome) { load(false); window.msg = 'Inserisci nome e cognome'; return window.viewAuth(); }
+        const { data, error } = await supabase.from('atleti').insert([{ nome, pin_hash: hp }]).select('id, nome').single();
+        load(false);
+        if (error) { window.msg = 'Errore: ' + error.message; return window.viewAuth(); }
+        return enterAs(data, hp);
+      }
+      if (needNew) {
+        const { data, error } = await supabase.from('atleti').update({ pin_hash: hp }).eq('id', window.who).is('pin_hash', null).select('id, nome').single();
+        load(false);
+        if (error || !data) { window.msg = 'Impossibile salvare il PIN (forse è già stato scelto). Ricarica la pagina.'; window.ATL = []; return window.viewAuth(); }
+        return enterAs(data, hp);
+      }
+      const { data, error } = await supabase.from('atleti').select('id, nome, pin_hash').eq('id', window.who).single();
       load(false);
       if (error || !data) { window.msg = 'Atleta non trovato'; return window.viewAuth(); }
-      const hashedPin = await hashString(pin);
-      if (hashedPin === data.pin_hash) {
-        window.S = { id: data.id, token: hashedPin, name: data.nome };
-        keep(); window.msg = ''; window.tab = 'oggi'; window.render();
-      } else {
-        window.msg = 'PIN errato'; window.viewAuth();
-      }
-    }
-
-    window.reg = async function () {
-      const nome = $('nm').value.trim();
-      const pin = $('pn').value;
-      const code = $('cd').value;
-      if (code !== GROUP_CODE) { window.msg = 'Codice gruppo errato'; return window.viewAuth(); }
-      if (!nome || pin.length < 4) { window.msg = 'Serve nome e PIN di almeno 4 cifre'; return window.viewAuth(); }
-      load(true);
-      const hashedPin = await hashString(pin);
-      const { data, error } = await supabase.from('atleti').insert([{ nome, pin_hash: hashedPin }]).select().single();
-      load(false);
-      if (error) { window.msg = 'Errore (nome già in uso?)'; return window.viewAuth(); }
-      window.S = { id: data.id, token: hashedPin, name: data.nome };
-      keep(); window.msg = ''; window.tab = 'oggi'; window.render();
+      if (data.pin_hash !== hp) { window.msg = 'PIN errato'; return window.viewAuth(); }
+      enterAs(data, hp);
     }
 
     window.clogin = function () {
       const pw = $('cp').value;
-      if (pw === COACH_PASS) {
-        window.S = { coach: pw };
-        keep(); window.msg = ''; window.tab = 'coach'; window.render();
-      } else {
-        window.S = null; window.msg = 'Password errata'; window.viewAuth();
-      }
+      if (pw === COACH_PASS) { window.S = { coach: pw }; keep(); window.msg = ''; window.tab = 'coach'; window.render(); }
+      else { window.S = null; window.msg = 'Password errata'; window.viewAuth(); }
     }
-
     window.logout = function () {
       window.S = null; try { localStorage.removeItem('s') } catch (e) { }
-      window.msg = ''; window.cm = false; window.viewAuth();
+      window.msg = ''; window.cm = false; window.who = ''; window.ATL = []; window.viewAuth();
     }
 
     window.render = async function () {
@@ -276,43 +314,40 @@
       app.innerHTML = h + (window.msg ? `<div class="card">${esc(window.msg)}</div>` : '') + body;
     }
 
+    // ---------- Oggi / Giorno ----------
     function presHTML(presenti) {
       return `<div class="card"><h2>Presenti (${presenti.length})</h2><p>${presenti.length ? esc(presenti.join(', ')) : '<span class="mu">Nessuno ancora.</span>'}</p></div>`;
     }
-
     async function fetchGiornata(targetDay) {
-      const { data: prog } = await supabase.from('programmi_override').select('testo').eq('data', targetDay).single();
+      const { data: prog } = await supabase.from('programmi_override').select('testo').eq('data', targetDay).maybeSingle();
       const { data: presData } = await supabase.from('presenze').select('atleta_id, atleti(nome)').eq('data', targetDay);
-      const presentNames = presData ? presData.map(p => p.atleti.nome) : [];
-      const here = window.S && presData ? presData.some(p => p.atleta_id === window.S.id) : false;
+      const presentNames = presData ? presData.map(p => p.atleti && p.atleti.nome).filter(Boolean) : [];
+      const here = window.S && window.S.id && presData ? presData.some(p => p.atleta_id === window.S.id) : false;
       return { testo: prog ? prog.testo : '', presentNames, here };
     }
-
     async function vOggi() {
+      const today = iso(new Date());
       load(true);
-      const { testo, presentNames, here } = await fetchGiornata(window.day);
+      const { testo, presentNames, here } = await fetchGiornata(today);
       load(false);
-      const label = testo ? 'Programma caricato' : 'Nessun programma per oggi';
-      return `<div class="card"><h2>Programma di oggi (${window.day})</h2><p class="mu">${label}</p>${testo ? `<pre>${esc(testo)}</pre>` : ''}</div>
-  <div class="card"><button class="${here ? 'on' : 'pri'}" onclick="window.toggle()">${here ? '✓ Presente — tocca per annullare' : 'Segna la mia presenza'}</button></div>${presHTML(presentNames)}`;
+      return `<div class="card"><h2>Programma di oggi (${today})</h2><p class="mu">${testo ? 'Programma caricato' : 'Nessun programma per oggi'}</p>${testo ? `<pre>${esc(testo)}</pre>` : ''}</div>
+      <div class="card"><button class="${here ? 'on' : 'pri'}" onclick="window.toggle()">${here ? '✓ Presente — tocca per annullare' : 'Segna la mia presenza'}</button></div>${presHTML(presentNames)}`;
     }
-
     window.toggle = async function () {
       window.msg = ''; load(true);
-      const { data } = await supabase.from('presenze').select('id').eq('atleta_id', window.S.id).eq('data', window.day).single();
+      const today = iso(new Date());
+      const { data } = await supabase.from('presenze').select('id').eq('atleta_id', window.S.id).eq('data', today).maybeSingle();
       if (data) await supabase.from('presenze').delete().eq('id', data.id);
-      else await supabase.from('presenze').insert([{ atleta_id: window.S.id, data: window.day }]);
+      else await supabase.from('presenze').insert([{ atleta_id: window.S.id, data: today }]);
       load(false); window.render();
     }
-
     async function vCoach() {
       load(true);
       const { testo, presentNames } = await fetchGiornata(window.day);
       load(false);
       return `<div class="card"><h2>Programma del giorno</h2><input type="date" value="${window.day}" onchange="window.day=this.value;window.render()"><p class="mu">Scrivi o incolla il programma per il giorno selezionato.</p>
-  <textarea id="pg">${esc(testo)}</textarea><div class="row"><button class="pri" onclick="window.saveProg()">Salva programma</button></div></div>${presHTML(presentNames)}`;
+      <textarea id="pg">${esc(testo)}</textarea><div class="row"><button class="pri" onclick="window.saveProg()">Salva programma</button></div></div>${presHTML(presentNames)}`;
     }
-
     window.saveProg = async function () {
       window.msg = ''; load(true);
       const testo = $('pg').value;
@@ -322,10 +357,15 @@
       load(false); window.msg = error ? 'Errore: ' + error.message : 'Programma salvato'; window.render();
     }
 
+    // ---------- Profilo ----------
+    function res(t) {
+      if (t.dati && t.dati.src) return esc((t.valore ?? '') + ' ' + (t.unita || '') + (t.nota ? ' — ' + t.nota : ''));
+      if (t.dati) return esc(Object.entries(t.dati).slice(0, 6).map(([k, v]) => k + ': ' + v).join(' · '));
+      return esc((t.valore ?? '') + ' ' + (t.unita || '') + (t.nota ? ' — ' + t.nota : ''));
+    }
     async function vProfilo() {
       load(true);
       let target = window.S.id, head = '';
-
       if (window.S.coach) {
         const { data: list } = await supabase.from('atleti').select('id, nome').order('nome');
         if (!list || !list.length) { load(false); return '<div class="card">Nessun atleta iscritto.</div>'; }
@@ -333,42 +373,110 @@
         target = window.viewId;
         head = `<select onchange="window.viewId=this.value;window.render()">${list.map(a => `<option value="${a.id}" ${a.id === window.viewId ? 'selected' : ''}>${esc(a.nome)}</option>`).join('')}</select>`;
       }
-
-      const { data: tests } = await supabase.from('test').select('*').eq('atleta_id', target).order('data', { ascending: false });
-      const curM = window.day.slice(0, 7);
-      const prevD = new Date(); prevD.setMonth(prevD.getMonth() - 1);
-      const prevM = iso(prevD).slice(0, 7);
-      const { count: cCur } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).like('data', `${curM}%`);
-      const { count: cPrev } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).like('data', `${prevM}%`);
+      const { data: tests } = await supabase.from('test').select('*').eq('atleta_id', target).order('data', { ascending: false }).limit(5000);
+      window.TESTS = tests || [];
+      const n = new Date();
+      const m0 = iso(new Date(n.getFullYear(), n.getMonth(), 1)), m1 = iso(new Date(n.getFullYear(), n.getMonth() + 1, 1)), p0 = iso(new Date(n.getFullYear(), n.getMonth() - 1, 1));
+      const { count: cCur } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).gte('data', m0).lt('data', m1);
+      const { count: cPrev } = await supabase.from('presenze').select('*', { count: 'exact', head: true }).eq('atleta_id', target).gte('data', p0).lt('data', m0);
       load(false);
 
-      return `<div class="card"><h2>${window.S.coach ? 'Atleta' : esc(window.S.name)}</h2>${head}<p class="mu">Presenze mese corrente: ${cCur || 0} · mese scorso: ${cPrev || 0}</p></div>
-  <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${Object.keys(window.TYPES).map(k => `<option value="${k}">${window.TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
-  <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="window.addManual('${target}')">Aggiungi</button></div>
-  <div class="card"><h2>Importa (CSV)</h2><div class="row"><select id="ct"><option value="forza">${window.TYPES.forza}</option><option value="bosco">${window.TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="window.imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
-  <div class="card scroll"><h2>Storico test</h2>${tests && tests.length ? `<table><tr><th>Data</th><th>Test</th><th>Risultato</th><th></th></tr>${tests.map(t => `<tr><td>${esc(t.data)}</td><td>${esc(window.TYPES[t.tipo] || t.tipo)}</td><td>${t.dati ? esc(Object.entries(t.dati).slice(0, 6).map(([k, v]) => k + ': ' + v).join(' · ')) : esc(t.valore + ' ' + (t.unita || '') + (t.nota ? ' — ' + t.nota : ''))}</td><td><button onclick="window.delTest('${t.id}')">✕</button></td></tr>`).join('')}</table>` : '<p class="mu">Ancora nessun test.</p>'}</div>`;
+      const cnt = {}; window.TESTS.forEach(t => cnt[t.tipo] = (cnt[t.tipo] || 0) + 1);
+      const tipi = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+      const years = [...new Set(window.TESTS.map(t => t.data.slice(0, 4)))].sort();
+      const chart = tipi.length ? `<div class="card"><h2>Grafici</h2>
+        <div class="row"><select id="gt" onchange="window.gtChange()">${tipi.map(k => `<option value="${esc(k)}">${esc(lab(k))} (${cnt[k]})</option>`).join('')}</select><select id="gm" onchange="window.drawChart()"></select></div>
+        <div class="row"><select id="gmese" onchange="window.drawChart()"><option value="">Tutti i mesi</option>${MESI.map((m, i) => `<option value="${i}">${m}</option>`).join('')}</select>
+        <select id="gy" onchange="window.drawChart()"><option value="">Tutti gli anni</option>${years.map(y => `<option value="${y}">${y}</option>`).join('')}</select>
+        <select id="ga" onchange="window.drawChart()"><option value="best">Migliore del giorno</option><option value="mean">Media del giorno</option><option value="all">Tutte le prove</option></select></div>
+        <div class="chart"><canvas id="cv"></canvas></div><p class="mu" id="gnote"></p></div>` : '';
+      if (tipi.length) setTimeout(() => window.gtChange(), 0);
+
+      return `<div class="card"><h2>${window.S.coach ? 'Atleta' : esc(window.S.name)}</h2>${head}<p class="mu">Presenze mese corrente: ${cCur || 0} · mese scorso: ${cPrev || 0}</p></div>${chart}
+      <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${MANUAL.map(k => `<option value="${k}">${TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
+      <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="window.addManual('${target}')">Aggiungi</button></div>
+      <div class="card"><h2>Importa (CSV)</h2><div class="row"><select id="ct"><option value="forza">${TYPES.forza}</option><option value="bosco">${TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="window.imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
+      <div class="card scroll"><details><summary>Storico test (${window.TESTS.length})</summary>${window.TESTS.length ? `<table><tr><th>Data</th><th>Test</th><th>Risultato</th><th></th></tr>${window.TESTS.map(t => `<tr><td>${esc(fdate(t.data))}</td><td>${esc(lab(t.tipo))}</td><td>${res(t)}</td><td><button onclick="window.delTest('${t.id}')">✕</button></td></tr>`).join('')}</table>` : '<p class="mu">Ancora nessun test.</p>'}</details></div>`;
     }
 
+    // ---------- Grafici ----------
+    function mval(t, k) {
+      if (k === 'valore') return (t.dati && t.dati.m) ? null : (t.valore == null ? null : +t.valore);
+      return t.dati && t.dati.m && t.dati.m[k] != null ? +t.dati.m[k] : null;
+    }
+    window.gtChange = function () {
+      const tipo = $('gt').value, ks = [];
+      window.TESTS.filter(t => t.tipo === tipo).forEach(t => {
+        if (t.dati && t.dati.m) Object.keys(t.dati.m).forEach(k => { if (!ks.includes(k)) ks.push(k) });
+        else if (t.valore != null && !ks.includes('valore')) ks.push('valore');
+      });
+      const def = PREF.find(k => ks.includes(k)) || ks[0];
+      $('gm').innerHTML = ks.map(k => `<option value="${k}" ${k === def ? 'selected' : ''}>${esc(LAB[k] || k)}</option>`).join('');
+      window.drawChart();
+    }
+    window.drawChart = function () {
+      if (CH) { try { CH.destroy() } catch (e) { } CH = null; }
+      const tipo = $('gt').value, k = $('gm').value, mese = $('gmese').value, anno = $('gy').value, agg = $('ga').value;
+      let F = window.TESTS.filter(t => t.tipo === tipo).map(t => ({
+        d: t.data, y: +t.data.slice(0, 4), mo: +t.data.slice(5, 7) - 1,
+        c: (t.dati && t.dati.carico > 0) ? +t.dati.carico : 0, v: mval(t, k), u: t.unita
+      })).filter(r => r.v != null);
+      if (mese !== '') F = F.filter(r => r.mo === +mese);
+      if (anno !== '') F = F.filter(r => r.y === +anno);
+      const note = $('gnote');
+      if (!F.length) { note.textContent = 'Nessun dato per questo periodo.'; return; }
+      const lower = /^(tempo|tc_)/.test(k) || (k === 'valore' && F[0].u === 's');
+      const pick = a => agg === 'mean' ? a.reduce((s, x) => s + x, 0) / a.length : (lower ? Math.min(...a) : Math.max(...a));
+      const rd = x => Math.round(x * 100) / 100;
+      const cs = getComputedStyle(document.documentElement);
+      Chart.defaults.color = cs.getPropertyValue('--fg').trim() || '#333';
+      Chart.defaults.borderColor = cs.getPropertyValue('--bd').trim() || '#ddd';
+      const ys = [...new Set(F.map(r => r.y))].sort();
+      const col = y => COLORS[ys.indexOf(y) % COLORS.length];
+      const loads = new Set(F.map(r => r.c).filter(c => c > 0));
+      let cfg;
+      if (loads.size >= 2) {
+        const ds = ys.map(y => {
+          const g = {}; F.filter(r => r.y === y && r.c > 0).forEach(r => (g[r.c] = g[r.c] || []).push(r.v));
+          let pts = [];
+          Object.keys(g).forEach(c => { if (agg === 'all') g[c].forEach(v => pts.push({ x: +c, y: rd(v) })); else pts.push({ x: +c, y: rd(pick(g[c])) }); });
+          pts.sort((a, b) => a.x - b.x);
+          return { label: String(y), data: pts, borderColor: col(y), backgroundColor: col(y), showLine: agg !== 'all', tension: 0.2 };
+        });
+        cfg = { type: 'scatter', data: { datasets: ds }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'linear', title: { display: true, text: 'Carico (kg)' } }, y: { title: { display: true, text: LAB[k] || k } } } } };
+        note.textContent = `${F.length} prove · una linea per anno: ${LAB[k] || k} in funzione del carico (${agg === 'mean' ? 'media' : agg === 'all' ? 'tutte le prove' : 'valore migliore'} per carico).`;
+      } else {
+        let labels, vals;
+        if (agg === 'all') {
+          const s = [...F].sort((a, b) => a.d.localeCompare(b.d)); labels = s.map(r => fdate(r.d)); vals = s;
+        } else {
+          const g = {}; F.forEach(r => (g[r.d] = g[r.d] || { y: r.y, a: [] }).a.push(r.v));
+          const dates = Object.keys(g).sort(); labels = dates.map(fdate); vals = dates.map(d => ({ y: g[d].y, v: pick(g[d].a) }));
+        }
+        const ds = ys.map(y => ({
+          label: String(y), data: vals.map(r => r.y === y ? rd(r.v) : null), borderColor: col(y), backgroundColor: col(y), spanGaps: true, tension: 0.2, pointRadius: 4
+        }));
+        cfg = { type: 'line', data: { labels, datasets: ds }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { title: { display: true, text: LAB[k] || k } } } } };
+        note.textContent = `${F.length} prove · ${LAB[k] || k} nel tempo (${agg === 'mean' ? 'media' : agg === 'all' ? 'tutte le prove' : 'valore migliore'} del giorno).`;
+      }
+      CH = new Chart($('cv'), cfg);
+    }
+
+    // ---------- Test manuali e import ----------
     window.addManual = async function (target) {
       if ($('tv').value === '') return;
       window.msg = ''; load(true);
-      await supabase.from('test').insert([{
-        atleta_id: target,
-        data: $('td').value || iso(new Date()),
-        tipo: $('tt').value,
-        valore: +$('tv').value,
-        unita: $('tu').value,
-        nota: $('tn').value
+      const { error } = await supabase.from('test').insert([{
+        atleta_id: target, data: $('td').value || iso(new Date()), tipo: $('tt').value,
+        valore: +$('tv').value, unita: $('tu').value, nota: $('tn').value
       }]);
-      load(false); window.render();
+      load(false); if (error) window.msg = 'Errore: ' + error.message; window.render();
     }
-
     window.delTest = async function (tid) {
       window.msg = ''; load(true);
-      await supabase.from('test').delete().eq('id', tid);
-      load(false); window.render();
+      const { error } = await supabase.from('test').delete().eq('id', tid);
+      load(false); if (error) window.msg = 'Errore: ' + error.message; window.render();
     }
-
     function parseCSV(txt) {
       const L = txt.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
       if (L.length < 2) return [];
@@ -377,26 +485,20 @@
       const H = sp(L[0]);
       return L.slice(1).map(l => { const c = sp(l), o = {}; H.forEach((h, i) => { if (h) o[h] = c[i] ?? '' }); return o; });
     }
-
     window.imp = function (inp, target) {
       const f = inp.files[0]; if (!f) return;
       const tipo = $('ct').value, r = new FileReader();
       r.onload = async () => {
         const items = parseCSV(r.result).map(o => {
           const k = Object.keys(o).find(k => /^(date|data|fecha)/i.test(k));
-          return {
-            atleta_id: target,
-            data: k && /^\d{4}-\d{2}-\d{2}/.test(o[k]) ? o[k].slice(0, 10) : iso(new Date()),
-            tipo, dati: o
-          };
+          return { atleta_id: target, data: k && /^\d{4}-\d{2}-\d{2}/.test(o[k]) ? o[k].slice(0, 10) : iso(new Date()), tipo, dati: o };
         });
         window.msg = '';
         if (items.length) {
           load(true);
           const { error } = await supabase.from('test').insert(items);
           load(false);
-          if (!error) window.msg = items.length + ' righe importate';
-          else window.msg = 'Errore importazione';
+          window.msg = error ? 'Errore importazione: ' + error.message : items.length + ' righe importate';
         }
         window.render();
       };
