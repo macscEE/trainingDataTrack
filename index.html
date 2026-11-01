@@ -316,9 +316,10 @@
     window.saveProg = async function () {
       window.msg = ''; load(true);
       const testo = $('pg').value;
-      if (testo.trim() === '') await supabase.from('programmi_override').delete().eq('data', window.day);
-      else await supabase.from('programmi_override').upsert({ data: window.day, testo });
-      load(false); window.msg = 'Programma salvato'; window.render();
+      const { error } = testo.trim() === ''
+        ? await supabase.from('programmi_override').delete().eq('data', window.day)
+        : await supabase.from('programmi_override').upsert({ data: window.day, testo });
+      load(false); window.msg = error ? 'Errore: ' + error.message : 'Programma salvato'; window.render();
     }
 
     async function vProfilo() {
