@@ -13,47 +13,157 @@
   <meta name="apple-mobile-web-app-title" content="Allenamento">
   <style>
     :root {
-      --bg: #fff;
-      --fg: #1c1c1e;
-      --mu: #6b6b70;
+      --bg: #f1f4f3;
+      --fg: #1b2420;
+      --mu: #66726d;
       --ac: #0a7a5a;
-      --bd: #ddd;
-      --cd: #f6f6f7
+      --ac2: #12a07a;
+      --bd: #dde4e1;
+      --cd: #ffffff;
+      --tint: #e6f4ef;
+      --sh: 0 1px 3px rgba(20, 40, 30, .08), 0 4px 14px rgba(20, 40, 30, .06)
     }
 
     @media(prefers-color-scheme:dark) {
       :root {
-        --bg: #17171a;
-        --fg: #eee;
-        --mu: #9a9aa0;
+        --bg: #101412;
+        --fg: #e8efec;
+        --mu: #93a09a;
         --ac: #2fb98c;
-        --bd: #333;
-        --cd: #222226
+        --ac2: #1f9c74;
+        --bd: #2a3430;
+        --cd: #1a201d;
+        --tint: #1c2b26;
+        --sh: 0 1px 3px rgba(0, 0, 0, .4)
       }
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent
     }
 
     body {
       margin: 0;
       background: var(--bg);
       color: var(--fg);
-      font: 16px/1.45 system-ui, -apple-system, sans-serif;
-      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom)
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      padding-bottom: calc(84px + env(safe-area-inset-bottom))
     }
 
     main {
+      padding: 0
+    }
+
+    .page {
       max-width: 720px;
       margin: 0 auto;
       padding: 14px
     }
 
-    nav {
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 5;
       display: flex;
-      gap: 6px;
-      margin-bottom: 12px
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+      background: linear-gradient(135deg, var(--ac), var(--ac2));
+      color: #fff;
+      box-shadow: var(--sh)
     }
 
-    nav button {
-      flex: 1
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      min-width: 0
+    }
+
+    .brand span:not(.wm) {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .brand .logo {
+      background: #fff;
+      border-radius: 8px;
+      padding: 3px
+    }
+
+    .wm {
+      font-weight: 800;
+      letter-spacing: .14em;
+      font-size: 1.25rem
+    }
+
+    .brand .wm {
+      color: #fff
+    }
+
+    .me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .9rem
+    }
+
+    .me span {
+      max-width: 28vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    button.out {
+      background: rgba(255, 255, 255, .18);
+      color: #fff;
+      border: 0;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: .85rem
+    }
+
+    .tabs {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      display: flex;
+      background: var(--cd);
+      border-top: 1px solid var(--bd);
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+      box-shadow: 0 -4px 14px rgba(20, 40, 30, .06)
+    }
+
+    .tabs button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border: 0;
+      background: none;
+      color: var(--mu);
+      font-size: .75rem;
+      padding: 6px 4px;
+      border-radius: 10px
+    }
+
+    .tabs button b {
+      font-size: 1.35rem;
+      font-weight: 400;
+      line-height: 1
+    }
+
+    .tabs button.on {
+      background: var(--tint);
+      color: var(--ac);
+      font-weight: 600
     }
 
     button,
@@ -64,20 +174,42 @@
       color: var(--fg);
       background: var(--cd);
       border: 1px solid var(--bd);
-      border-radius: 8px;
-      padding: 10px;
+      border-radius: 12px;
+      padding: 11px 12px;
       box-sizing: border-box
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid var(--ac);
+      outline-offset: 0;
+      border-color: var(--ac)
     }
 
     button {
       cursor: pointer
     }
 
-    button.on,
     button.pri {
       background: var(--ac);
       color: #fff;
-      border-color: var(--ac)
+      border-color: var(--ac);
+      font-weight: 600
+    }
+
+    button.big {
+      width: 100%;
+      padding: 16px;
+      font-size: 1.1rem;
+      border-radius: 14px
+    }
+
+    button.ok {
+      background: var(--tint);
+      color: var(--ac);
+      border: 2px solid var(--ac);
+      font-weight: 600
     }
 
     textarea {
@@ -88,9 +220,10 @@
     .card {
       background: var(--cd);
       border: 1px solid var(--bd);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: var(--sh)
     }
 
     .row {
@@ -105,14 +238,24 @@
       min-width: 110px
     }
 
+    h1 {
+      font-size: 1.5rem;
+      margin: .4rem 0 0
+    }
+
     h2 {
       font-size: 1.1rem;
-      margin: .2rem 0 .5rem
+      margin: .1rem 0 .6rem
     }
 
     .mu {
       color: var(--mu);
       font-size: .9rem
+    }
+
+    .err {
+      color: #c92a2a;
+      font-weight: 600
     }
 
     .scroll {
@@ -128,8 +271,20 @@
     td,
     th {
       border-bottom: 1px solid var(--bd);
-      padding: 5px 6px;
+      padding: 7px 6px;
       text-align: left
+    }
+
+    tr:nth-child(even) td {
+      background: var(--bg)
+    }
+
+    th {
+      color: var(--mu);
+      font-weight: 600;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .04em
     }
 
     pre {
@@ -147,6 +302,185 @@
     .chart {
       position: relative;
       height: 300px
+    }
+
+    .hero {
+      text-align: center;
+      padding: 28px 0 14px
+    }
+
+    .hero .logo {
+      max-height: 90px;
+      max-width: 70%;
+      object-fit: contain
+    }
+
+    .hero .wm {
+      font-size: 2.4rem;
+      color: var(--ac)
+    }
+
+    .when {
+      color: var(--ac);
+      font-weight: 600;
+      text-transform: capitalize;
+      font-size: .95rem;
+      margin-bottom: 2px
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px
+    }
+
+    .chip {
+      background: var(--tint);
+      color: var(--ac);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: .9rem;
+      font-weight: 500
+    }
+
+    .prof {
+      display: flex;
+      align-items: center;
+      gap: 14px
+    }
+
+    .prof .pn {
+      flex: 1;
+      min-width: 0
+    }
+
+    .avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ac), var(--ac2));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      flex: none
+    }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px
+    }
+
+    .stats div {
+      flex: 1;
+      background: var(--tint);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center
+    }
+
+    .stats b {
+      display: block;
+      font-size: 1.5rem;
+      color: var(--ac)
+    }
+
+    .stats span {
+      font-size: .8rem;
+      color: var(--mu)
+    }
+
+    .authbg {
+      background: linear-gradient(160deg, var(--ac), var(--ac2));
+      padding: calc(40px + env(safe-area-inset-top)) 20px 96px;
+      text-align: center;
+      color: #fff;
+      border-radius: 0 0 36px 36px
+    }
+
+    .authbg .logo {
+      background: #fff;
+      border-radius: 18px;
+      padding: 8px;
+      max-height: 84px
+    }
+
+    .authbg .wm {
+      background: #fff;
+      color: var(--ac);
+      border-radius: 18px;
+      padding: 10px 20px;
+      display: inline-block;
+      font-size: 1.9rem
+    }
+
+    .authbg h1 {
+      margin: 16px 0 4px;
+      font-size: 1.6rem;
+      color: #fff
+    }
+
+    .authbg p {
+      margin: 0;
+      opacity: .9
+    }
+
+    .authcard {
+      max-width: 440px;
+      margin: -64px auto 0;
+      padding: 0 16px 24px
+    }
+
+    .authcard .card {
+      padding: 20px
+    }
+
+    .lbl {
+      display: block;
+      font-weight: 600;
+      margin: 2px 0 6px;
+      font-size: .9rem
+    }
+
+    .field {
+      margin-bottom: 12px
+    }
+
+    .field>* {
+      width: 100%
+    }
+
+    .coachlink {
+      display: block;
+      text-align: center;
+      margin-top: 14px;
+      color: var(--mu);
+      font-size: .9rem;
+      text-decoration: none
+    }
+
+    .seg {
+      display: flex;
+      gap: 6px
+    }
+
+    .seg button {
+      flex: 1;
+      font-weight: 600
+    }
+
+    .seg button.on {
+      background: var(--ac);
+      color: #fff;
+      border-color: var(--ac)
+    }
+
+    .prof .pn select {
+      width: 100%;
+      margin-top: 8px
     }
 
     #ld {
@@ -195,6 +529,8 @@
     const SUPABASE_KEY = 'sb_publishable_NHTFYS0w7DDWmbXltjNcXA_Syu1_p5H';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     const COACH_PASS = 'admin'; // Password allenatore
+    const DOC_URL = 'https://script.google.com/macros/s/AKfycbyVskayVzinRtrDPBWEHwsd1S2OquGkztVGiSyOOL3ioyYptZ9FrDkl36m2znVbpzI/exec'; // indirizzo dello script Programma.gs (Apps Script)
+    const GRUPPI = ['PM', 'OSTACOLI', 'SALTI'];
 
     const TYPES = {
       forza: 'Test di forza', bosco: 'Test di Bosco', velocita: 'Velocità', policoncorrenza: 'Policoncorrenza', multibalzi: 'Multibalzi',
@@ -228,12 +564,15 @@
     window.msg = '';
     window.cm = false;
     window.who = '';
+    window.grp = 'PM';
     window.ATL = [];
     window.TESTS = [];
     let busy = 0, CH = null;
 
     function iso(d) { return d.toLocaleDateString('sv-SE') }
     function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
+    function logo(h) { return `<img class="logo" style="height:${h || 30}px" src="logo.png" alt="SANP" onerror="this.outerHTML='<span class=wm>SANP</span>'">` }
+    function ini(n) { return String(n || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() }
     function fdate(s) { const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
     function keep() { try { localStorage.setItem('s', JSON.stringify(window.S)) } catch (e) { } }
     function load(on) { busy += on ? 1 : -1; $('ld').classList.toggle('on', busy > 0) }
@@ -247,43 +586,51 @@
     window.viewAuth = async function () {
       if (!window.cm && !window.ATL.length) {
         load(true);
-        const { data, error } = await supabase.from('atleti').select('id, nome, ha_pin').order('nome');
+        const { data, error } = await supabase.from('atleti').select('id, nome, ha_pin, gruppo').order('nome');
         load(false);
         if (error) window.msg = 'Errore: ' + error.message;
         window.ATL = data || [];
       }
-      let body = '';
+      const err = window.msg ? `<p class="err">${esc(window.msg)}</p>` : '';
       if (window.cm) {
-        body = `<div class="row"><input id="cp" type="password" placeholder="Password allenatore"></div><div class="row"><button class="pri" onclick="window.clogin()">Entra come allenatore</button><button onclick="window.cm=false;window.msg='';window.viewAuth()">Indietro</button></div>`;
-      } else {
-        const a = window.ATL.find(x => x.id === window.who);
-        let act = '';
-        if (window.who === '__new') act = `<div class="row"><input id="nm" placeholder="Nome e cognome"></div><div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="Scegli un PIN (min. 4 cifre)"><input id="pn2" type="password" inputmode="numeric" placeholder="Ripeti il PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Iscriviti</button></div>`;
-        else if (a && !a.ha_pin) act = `<p class="mu">Prima volta: scegli un PIN. Lo userai per entrare ogni volta.</p><div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="Scegli un PIN (min. 4 cifre)"><input id="pn2" type="password" inputmode="numeric" placeholder="Ripeti il PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Salva il PIN ed entra</button></div>`;
-        else if (a) act = `<div class="row"><input id="pn" type="password" inputmode="numeric" placeholder="PIN"></div><div class="row"><button class="pri" onclick="window.enter()">Accedi</button></div>`;
-        body = `<div class="row"><select id="who" onchange="window.who=this.value;window.msg='';window.viewAuth()"><option value="">Scegli il tuo nome…</option>${window.ATL.map(x => `<option value="${x.id}" ${x.id === window.who ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}<option value="__new" ${window.who === '__new' ? 'selected' : ''}>➕ Non sono in lista</option></select></div>${act}
-        <p class="mu"><a href="#" onclick="window.cm=true;window.msg='';window.viewAuth();return false">Sono l'allenatore</a></p>`;
+        app.innerHTML = `<div class="authbg"><div style="font-size:2.6rem;line-height:1">🔒</div><h1>Area allenatore</h1><p>Programmi, presenze e atleti</p></div>
+        <div class="authcard"><div class="card">${err}<div class="field"><label class="lbl">Password</label><input id="cp" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+        <button class="pri big" onclick="window.clogin()">Entra</button>
+        <a href="#" class="coachlink" onclick="window.cm=false;window.msg='';window.viewAuth();return false">← Torna all'accesso atleti</a></div></div>`;
+        return;
       }
-      app.innerHTML = `<div class="card"><h2>Gruppo Allenamento</h2>${window.msg ? `<p>${esc(window.msg)}</p>` : ''}${body}</div>`;
+      const a = window.ATL.find(x => x.id === window.who);
+      const grpSel = `<div class="field"><label class="lbl">Il tuo gruppo</label><select id="gr"><option value="">Scegli…</option>${GRUPPI.map(g => `<option>${g}</option>`).join('')}</select></div>`;
+      const pinf = two => `<div class="field"><label class="lbl">${two ? 'Scegli un PIN (almeno 4 cifre)' : 'PIN'}</label><input id="pn" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>` + (two ? `<div class="field"><label class="lbl">Ripeti il PIN</label><input id="pn2" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>` : '');
+      let act = '';
+      if (window.who === '__new') act = `<div class="field"><label class="lbl">Nome e cognome</label><input id="nm" placeholder="Es. Mario Rossi"></div>${grpSel}${pinf(true)}<button class="pri big" onclick="window.enter()">Iscriviti</button>`;
+      else if (a && !a.ha_pin) act = `<p class="mu">Prima volta qui: scegli un PIN, lo userai per entrare ogni volta.</p>${a.gruppo ? '' : grpSel}${pinf(true)}<button class="pri big" onclick="window.enter()">Salva il PIN ed entra</button>`;
+      else if (a) act = `${pinf(false)}<button class="pri big" onclick="window.enter()">Accedi</button>`;
+      app.innerHTML = `<div class="authbg">${logo(84)}<h1>Gruppo Allenamento</h1><p>Accedi per vedere il programma e segnare la presenza</p></div>
+      <div class="authcard"><div class="card">${err}<div class="field"><label class="lbl">Chi sei?</label><select id="who" onchange="window.who=this.value;window.msg='';window.viewAuth()"><option value="">Scegli il tuo nome…</option>${window.ATL.map(x => `<option value="${x.id}" ${x.id === window.who ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}<option value="__new" ${window.who === '__new' ? 'selected' : ''}>➕ Non sono in lista</option></select></div>${act}
+      <a href="#" class="coachlink" onclick="window.cm=true;window.msg='';window.viewAuth();return false">🔒 Accesso allenatore</a></div></div>`;
     }
 
     window.enter = async function () {
-      const pin = $('pn').value, pin2 = $('pn2') ? $('pn2').value : pin;
-      const needNew = window.who === '__new' || (window.ATL.find(x => x.id === window.who) || {}).ha_pin === false;
+      const pin = $('pn').value, pin2 = $('pn2') ? $('pn2').value : pin, gr = $('gr') ? $('gr').value : '';
+      const a = window.ATL.find(x => x.id === window.who);
+      const needNew = window.who === '__new' || (a && a.ha_pin === false);
       if (pin.length < 4) { window.msg = 'Il PIN deve avere almeno 4 cifre'; return window.viewAuth(); }
       if (needNew && pin !== pin2) { window.msg = 'I due PIN non coincidono'; return window.viewAuth(); }
+      if (needNew && $('gr') && !gr) { window.msg = 'Scegli il tuo gruppo'; return window.viewAuth(); }
       const hp = await hashString(pin);
       load(true);
       if (window.who === '__new') {
         const nome = $('nm').value.trim();
         if (!nome) { load(false); window.msg = 'Inserisci nome e cognome'; return window.viewAuth(); }
-        const { data, error } = await supabase.from('atleti').insert([{ nome, pin_hash: hp }]).select('id, nome').single();
+        const { data, error } = await supabase.from('atleti').insert([{ nome, pin_hash: hp, gruppo: gr }]).select('id, nome').single();
         load(false);
         if (error) { window.msg = 'Errore: ' + error.message; return window.viewAuth(); }
         return enterAs(data, hp);
       }
       if (needNew) {
-        const { data, error } = await supabase.from('atleti').update({ pin_hash: hp }).eq('id', window.who).is('pin_hash', null).select('id, nome').single();
+        const upd = { pin_hash: hp }; if (gr) upd.gruppo = gr;
+        const { data, error } = await supabase.from('atleti').update(upd).eq('id', window.who).is('pin_hash', null).select('id, nome').single();
         load(false);
         if (error || !data) { window.msg = 'Impossibile salvare il PIN (forse è già stato scelto). Ricarica la pagina.'; window.ATL = []; return window.viewAuth(); }
         return enterAs(data, hp);
@@ -309,29 +656,49 @@
       if (!window.S) return window.viewAuth();
       const c = !!window.S.coach;
       const t = c ? [['coach', 'Giorno'], ['profilo', 'Atleti']] : [['oggi', 'Oggi'], ['profilo', 'Profilo']];
-      let h = '<nav>' + t.map(([k, l]) => `<button class="${window.tab === k ? 'on' : ''}" onclick="window.tab='${k}';window.msg='';window.render()">${l}</button>`).join('') + '<button onclick="window.logout()">Esci</button></nav>';
+      const ICON = { oggi: '📅', profilo: c ? '👥' : '👤', coach: '✏️' };
+      const head = `<header class="top"><div class="brand">${logo(32)}<span>Gruppo Allenamento</span></div><div class="me"><span>${c ? 'Allenatore' : esc(window.S.name)}</span><button class="out" onclick="window.logout()">Esci</button></div></header>`;
+      const tabs = '<nav class="tabs">' + t.map(([k, l]) => `<button class="${window.tab === k ? 'on' : ''}" onclick="window.tab='${k}';window.msg='';window.render()"><b>${ICON[k]}</b>${l}</button>`).join('') + '</nav>';
       const body = window.tab === 'oggi' ? await vOggi() : window.tab === 'profilo' ? await vProfilo() : await vCoach();
-      app.innerHTML = h + (window.msg ? `<div class="card">${esc(window.msg)}</div>` : '') + body;
+      app.innerHTML = head + '<div class="page">' + (window.msg ? `<div class="card">${esc(window.msg)}</div>` : '') + body + '</div>' + tabs;
     }
 
     // ---------- Oggi / Giorno ----------
     function presHTML(presenti) {
-      return `<div class="card"><h2>Presenti (${presenti.length})</h2><p>${presenti.length ? esc(presenti.join(', ')) : '<span class="mu">Nessuno ancora.</span>'}</p></div>`;
+      return `<div class="card"><h2>Presenti (${presenti.length})</h2>${presenti.length ? `<div class="chips">${presenti.map(n => `<span class="chip">${esc(n)}</span>`).join('')}</div>` : '<p class="mu">Nessuno ancora.</p>'}</div>`;
     }
-    async function fetchGiornata(targetDay) {
-      const { data: prog } = await supabase.from('programmi_override').select('testo').eq('data', targetDay).maybeSingle();
-      const { data: presData } = await supabase.from('presenze').select('atleta_id, atleti(nome)').eq('data', targetDay);
-      const presentNames = presData ? presData.map(p => p.atleti && p.atleti.nome).filter(Boolean) : [];
+    async function docProg(d, g) {
+      if (!DOC_URL || DOC_URL.startsWith('INSERISCI')) return { label: 'Programma automatico non configurato', text: '' };
+      try { const r = await fetch(DOC_URL + '?day=' + d + '&group=' + encodeURIComponent(g)); return await r.json() }
+      catch (e) { return { label: 'Programma non raggiungibile', text: '' } }
+    }
+    function showProg(r, id) {
+      const el = $(id); if (!el) return;
+      el.innerHTML = (r.label ? `<p class="mu">${esc(r.label)}</p>` : '') + (r.text ? `<pre>${esc(r.text)}</pre>` : '');
+    }
+    async function fetchGiornata(targetDay, grp) {
+      let testo = '';
+      if (grp) {
+        const { data: prog } = await supabase.from('programmi_override').select('testo').eq('data', targetDay).eq('gruppo', grp).maybeSingle();
+        testo = prog ? prog.testo : '';
+      }
+      const { data: presData } = await supabase.from('presenze').select('atleta_id, atleti(nome, gruppo)').eq('data', targetDay);
+      const presentNames = (presData || []).map(p => p.atleti ? p.atleti.nome + (p.atleti.gruppo ? ' · ' + p.atleti.gruppo : '') : null).filter(Boolean);
       const here = window.S && window.S.id && presData ? presData.some(p => p.atleta_id === window.S.id) : false;
-      return { testo: prog ? prog.testo : '', presentNames, here };
+      return { testo, presentNames, here };
     }
     async function vOggi() {
       const today = iso(new Date());
       load(true);
-      const { testo, presentNames, here } = await fetchGiornata(today);
+      const { data: me } = await supabase.from('atleti').select('gruppo').eq('id', window.S.id).maybeSingle();
+      const grp = me && me.gruppo;
+      const { testo, presentNames, here } = await fetchGiornata(today, grp);
       load(false);
-      return `<div class="card"><h2>Programma di oggi (${today})</h2><p class="mu">${testo ? 'Programma caricato' : 'Nessun programma per oggi'}</p>${testo ? `<pre>${esc(testo)}</pre>` : ''}</div>
-      <div class="card"><button class="${here ? 'on' : 'pri'}" onclick="window.toggle()">${here ? '✓ Presente — tocca per annullare' : 'Segna la mia presenza'}</button></div>${presHTML(presentNames)}`;
+      const btn = `<button class="big ${here ? 'ok' : 'pri'}" style="margin-bottom:14px" onclick="window.toggle()">${here ? '✓ Presente — tocca per annullare' : 'Segna la mia presenza'}</button>`;
+      if (!grp) return `<div class="card"><h2>Scegli il tuo gruppo</h2><p class="mu">Serve per mostrarti il programma giusto. Potrai cambiarlo dal tuo profilo.</p><div class="seg">${GRUPPI.map(g => `<button onclick="window.setGroupFor('${window.S.id}','${g}')">${g}</button>`).join('')}</div></div>${btn}${presHTML(presentNames)}`;
+      if (!testo) setTimeout(async () => showProg(await docProg(today, grp), 'prog'), 0);
+      const when = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+      return `<div class="card"><div class="when">${esc(when)}</div><h2>Programma di oggi <span class="chip">${esc(grp)}</span></h2><div id="prog">${testo ? `<pre>${esc(testo)}</pre>` : '<p class="mu">Carico il programma…</p>'}</div></div>${btn}${presHTML(presentNames)}`;
     }
     window.toggle = async function () {
       window.msg = ''; load(true);
@@ -341,19 +708,36 @@
       else await supabase.from('presenze').insert([{ atleta_id: window.S.id, data: today }]);
       load(false); window.render();
     }
+    window.setGroupFor = async function (id, g) {
+      window.msg = ''; load(true);
+      const { error } = await supabase.from('atleti').update({ gruppo: g || null }).eq('id', id);
+      load(false); if (error) window.msg = 'Errore: ' + error.message; window.render();
+    }
     async function vCoach() {
       load(true);
-      const { testo, presentNames } = await fetchGiornata(window.day);
+      const { testo, presentNames } = await fetchGiornata(window.day, window.grp);
       load(false);
-      return `<div class="card"><h2>Programma del giorno</h2><input type="date" value="${window.day}" onchange="window.day=this.value;window.render()"><p class="mu">Scrivi o incolla il programma per il giorno selezionato.</p>
-      <textarea id="pg">${esc(testo)}</textarea><div class="row"><button class="pri" onclick="window.saveProg()">Salva programma</button></div></div>${presHTML(presentNames)}`;
+      if (!testo) {
+        const d = window.day, g = window.grp;
+        setTimeout(async () => {
+          const r = await docProg(d, g); const ta = $('pg');
+          if (ta && ta.dataset.k === d + g && !ta.value) ta.value = r.text || '';
+          const l = $('pl'); if (l) l.textContent = r.label || '';
+        }, 0);
+      }
+      return `<div class="card"><h2>Programma del giorno</h2>
+      <div class="seg">${GRUPPI.map(g => `<button class="${g === window.grp ? 'on' : ''}" onclick="window.grp='${g}';window.render()">${g}</button>`).join('')}</div>
+      <input type="date" value="${window.day}" onchange="window.day=this.value;window.render()" style="width:100%;margin-top:8px">
+      <p class="mu" id="pl" style="margin-bottom:0">${testo ? 'Modificato da te' : ''}</p>
+      <p class="mu">Il testo viene dal documento in Drive. Se lo modifichi e salvi, per questo gruppo e questo giorno vale la tua versione; svuotalo e salva per tornare al documento.</p>
+      <textarea id="pg" data-k="${window.day}${window.grp}">${esc(testo)}</textarea><div class="row"><button class="pri" onclick="window.saveProg()">Salva modifica</button></div></div>${presHTML(presentNames)}`;
     }
     window.saveProg = async function () {
       window.msg = ''; load(true);
       const testo = $('pg').value;
       const { error } = testo.trim() === ''
-        ? await supabase.from('programmi_override').delete().eq('data', window.day)
-        : await supabase.from('programmi_override').upsert({ data: window.day, testo });
+        ? await supabase.from('programmi_override').delete().eq('data', window.day).eq('gruppo', window.grp)
+        : await supabase.from('programmi_override').upsert({ data: window.day, gruppo: window.grp, testo });
       load(false); window.msg = error ? 'Errore: ' + error.message : 'Programma salvato'; window.render();
     }
 
@@ -365,14 +749,20 @@
     }
     async function vProfilo() {
       load(true);
-      let target = window.S.id, head = '';
+      let target = window.S.id, head = '', nm = window.S.name, grpV = '';
       if (window.S.coach) {
-        const { data: list } = await supabase.from('atleti').select('id, nome').order('nome');
+        const { data: list } = await supabase.from('atleti').select('id, nome, gruppo').order('nome');
         if (!list || !list.length) { load(false); return '<div class="card">Nessun atleta iscritto.</div>'; }
         if (!window.viewId || !list.find(a => a.id === window.viewId)) window.viewId = list[0].id;
         target = window.viewId;
-        head = `<select onchange="window.viewId=this.value;window.render()">${list.map(a => `<option value="${a.id}" ${a.id === window.viewId ? 'selected' : ''}>${esc(a.nome)}</option>`).join('')}</select>`;
+        const cur = list.find(a => a.id === window.viewId);
+        nm = cur.nome; grpV = cur.gruppo || '';
+        head = `<select onchange="window.viewId=this.value;window.render()">${list.map(a => `<option value="${a.id}" ${a.id === window.viewId ? 'selected' : ''}>${esc(a.nome)}${a.gruppo ? ' (' + esc(a.gruppo) + ')' : ''}</option>`).join('')}</select>`;
+      } else {
+        const { data: me } = await supabase.from('atleti').select('gruppo').eq('id', target).maybeSingle();
+        grpV = (me && me.gruppo) || '';
       }
+      head += `<select onchange="window.setGroupFor('${target}',this.value)"><option value="">Gruppo non assegnato</option>${GRUPPI.map(g => `<option ${g === grpV ? 'selected' : ''}>${g}</option>`).join('')}</select>`;
       const { data: tests } = await supabase.from('test').select('*').eq('atleta_id', target).order('data', { ascending: false }).limit(5000);
       window.TESTS = tests || [];
       const n = new Date();
@@ -392,7 +782,8 @@
         <div class="chart"><canvas id="cv"></canvas></div><p class="mu" id="gnote"></p></div>` : '';
       if (tipi.length) setTimeout(() => window.gtChange(), 0);
 
-      return `<div class="card"><h2>${window.S.coach ? 'Atleta' : esc(window.S.name)}</h2>${head}<p class="mu">Presenze mese corrente: ${cCur || 0} · mese scorso: ${cPrev || 0}</p></div>${chart}
+      return `<div class="card"><div class="prof"><div class="avatar">${esc(ini(nm))}</div><div class="pn"><h2 style="margin:0">${esc(nm)}</h2>${head}</div></div>
+      <div class="stats"><div><b>${cCur || 0}</b><span>presenze questo mese</span></div><div><b>${cPrev || 0}</b><span>mese scorso</span></div></div></div>${chart}
       <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${MANUAL.map(k => `<option value="${k}">${TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
       <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="window.addManual('${target}')">Aggiungi</button></div>
       <div class="card"><h2>Importa (CSV)</h2><div class="row"><select id="ct"><option value="forza">${TYPES.forza}</option><option value="bosco">${TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="window.imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
@@ -505,6 +896,7 @@
       r.readAsText(f);
     }
 
+    app.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.type === 'password') { const b = app.querySelector('.authcard button.pri'); if (b) b.click(); } });
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     window.render();
   </script>
