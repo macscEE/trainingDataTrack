@@ -462,6 +462,13 @@
       text-decoration: none
     }
 
+    button.danger {
+      background: transparent;
+      color: #c92a2a;
+      border: 2px solid #c92a2a;
+      font-weight: 600
+    }
+
     .seg {
       display: flex;
       gap: 6px
@@ -741,6 +748,42 @@
       load(false); window.msg = error ? 'Errore: ' + error.message : 'Programma salvato'; window.render();
     }
 
+    // ---------- Gestione atleti (allenatore) ----------
+    function addForm() {
+      return `<div class="field"><label class="lbl">Nuovo atleta</label><input id="na" placeholder="Nome e cognome"></div>
+      <div class="field"><select id="ng"><option value="">Gruppo (facoltativo)</option>${GRUPPI.map(g => `<option>${g}</option>`).join('')}</select></div>
+      <p class="mu">Al primo accesso l'atleta sceglierà il suo PIN.</p>
+      <button class="pri big" onclick="window.addAthlete()">Aggiungi atleta</button>`;
+    }
+    window.addAthlete = async function () {
+      const nome = $('na').value.trim(), g = $('ng').value;
+      if (!nome) { window.msg = 'Inserisci nome e cognome'; return window.render(); }
+      window.msg = ''; load(true);
+      const { data, error } = await supabase.from('atleti').insert([{ nome, gruppo: g || null }]).select('id').single();
+      load(false);
+      if (error) window.msg = /duplicate|unique/i.test(error.message) ? 'Esiste già un atleta con questo nome' : 'Errore: ' + error.message;
+      else { window.viewId = data.id; window.msg = nome + ' aggiunto: al primo accesso sceglierà il PIN'; }
+      window.ATL = []; window.render();
+    }
+    window.resetPin = async function () {
+      const c = window.CUR; if (!c) return;
+      if (!confirm('Reimpostare il PIN di ' + c.nome + '? Al prossimo accesso dovrà sceglierne uno nuovo.')) return;
+      window.msg = ''; load(true);
+      const { error } = await supabase.from('atleti').update({ pin_hash: null }).eq('id', c.id);
+      load(false);
+      window.msg = error ? 'Errore: ' + error.message : 'PIN di ' + c.nome + ' reimpostato: al prossimo accesso ne sceglierà uno nuovo';
+      window.ATL = []; window.render();
+    }
+    window.removeAthlete = async function () {
+      const c = window.CUR; if (!c) return;
+      if (!confirm('Rimuovere ' + c.nome + '? Verranno cancellati anche i suoi test e le sue presenze. Non si può annullare.')) return;
+      window.msg = ''; load(true);
+      const { error } = await supabase.from('atleti').delete().eq('id', c.id);
+      load(false);
+      if (error) window.msg = 'Errore: ' + error.message; else { window.msg = c.nome + ' rimosso'; window.viewId = null; }
+      window.ATL = []; window.render();
+    }
+
     // ---------- Profilo ----------
     function res(t) {
       if (t.dati && t.dati.src) return esc((t.valore ?? '') + ' ' + (t.unita || '') + (t.nota ? ' — ' + t.nota : ''));
@@ -749,14 +792,22 @@
     }
     async function vProfilo() {
       load(true);
-      let target = window.S.id, head = '', nm = window.S.name, grpV = '';
+      let target = window.S.id, head = '', nm = window.S.name, grpV = '', coachTools = '';
       if (window.S.coach) {
         const { data: list } = await supabase.from('atleti').select('id, nome, gruppo').order('nome');
-        if (!list || !list.length) { load(false); return '<div class="card">Nessun atleta iscritto.</div>'; }
+        if (!list || !list.length) { load(false); return `<div class="card"><h2>Nessun atleta iscritto</h2>${addForm()}</div>`; }
         if (!window.viewId || !list.find(a => a.id === window.viewId)) window.viewId = list[0].id;
         target = window.viewId;
         const cur = list.find(a => a.id === window.viewId);
         nm = cur.nome; grpV = cur.gruppo || '';
+        window.CUR = { id: cur.id, nome: cur.nome };
+        coachTools = `<div class="card"><details><summary>Gestisci atleti</summary><div style="margin-top:12px">${addForm()}
+          <hr style="border:0;border-top:1px solid var(--bd);margin:16px 0"><label class="lbl">Reimposta il PIN di ${esc(cur.nome)}</label>
+          <p class="mu">Se lo ha dimenticato: al prossimo accesso sceglierà un nuovo PIN. Avvisalo di farlo subito.</p>
+          <button class="big" onclick="window.resetPin()">Reimposta PIN</button>
+          <hr style="border:0;border-top:1px solid var(--bd);margin:16px 0"><label class="lbl">Rimuovi ${esc(cur.nome)}</label>
+          <p class="mu">Cancella l'atleta con tutti i suoi test e le sue presenze. Non si può annullare.</p>
+          <button class="big danger" onclick="window.removeAthlete()">Rimuovi ${esc(cur.nome)}</button></div></details></div>`;
         head = `<select onchange="window.viewId=this.value;window.render()">${list.map(a => `<option value="${a.id}" ${a.id === window.viewId ? 'selected' : ''}>${esc(a.nome)}${a.gruppo ? ' (' + esc(a.gruppo) + ')' : ''}</option>`).join('')}</select>`;
       } else {
         const { data: me } = await supabase.from('atleti').select('gruppo').eq('id', target).maybeSingle();
@@ -783,7 +834,7 @@
       if (tipi.length) setTimeout(() => window.gtChange(), 0);
 
       return `<div class="card"><div class="prof"><div class="avatar">${esc(ini(nm))}</div><div class="pn"><h2 style="margin:0">${esc(nm)}</h2>${head}</div></div>
-      <div class="stats"><div><b>${cCur || 0}</b><span>presenze questo mese</span></div><div><b>${cPrev || 0}</b><span>mese scorso</span></div></div></div>${chart}
+      <div class="stats"><div><b>${cCur || 0}</b><span>presenze questo mese</span></div><div><b>${cPrev || 0}</b><span>mese scorso</span></div></div></div>${coachTools}${chart}
       <div class="card"><h2>Nuovo test manuale</h2><div class="row"><select id="tt">${MANUAL.map(k => `<option value="${k}">${TYPES[k]}</option>`).join('')}</select><input id="td" type="date" value="${iso(new Date())}"></div>
       <div class="row"><input id="tv" type="number" step="any" inputmode="decimal" placeholder="Risultato"><input id="tu" placeholder="Unità (s, cm…)"><input id="tn" placeholder="Note"></div><button class="pri" onclick="window.addManual('${target}')">Aggiungi</button></div>
       <div class="card"><h2>Importa (CSV)</h2><div class="row"><select id="ct"><option value="forza">${TYPES.forza}</option><option value="bosco">${TYPES.bosco}</option></select><input id="cf" type="file" accept=".csv,.txt" onchange="window.imp(this,'${target}')"></div><p class="mu">Ogni riga del CSV diventa un test.</p></div>
